@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum BorrowStatus {
+  REQUESTED
+  APPROVED
+  PICKED_UP
+  RETURNED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+enum BookCondition {
+  NEW
+  GOOD
+  FAIR
+  WORN
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  firebaseUid String   @unique
+  role        UserRole @default(MEMBER)
+  familyId    String
+  family      Family   @relation(fields: [familyId], references: [id])
+  borrowings  Borrowing[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([familyId])
+}
+
+model Family {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  latitude  Float?
+  longitude Float?
+  phone     String?
+  email     String?
+  users     User[]
+  books     Book[]
+  invites   FamilyInvite[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Book {
+  id          String   @id @default(cuid())
+  familyId    String
+  family      Family   @relation(fields: [familyId], references: [id])
+  title       String
+  author      String
+  isbn        String?
+  description String?
+  coverImage  String?
+  condition   BookCondition @default(GOOD)
+  isAvailable Boolean  @default(true)
+  borrowings  Borrowing[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([familyId, isAvailable])
+}
+
+model Borrowing {
+  id          String          @id @default(cuid())
+  bookId      String
+  borrowerId  String
+  book        Book            @relation(fields: [bookId], references: [id])
+  borrower    User            @relation(fields: [borrowerId], references: [id])
+  status      BorrowStatus @default(REQUESTED)
+  requestedAt DateTime        @default(now())
+  dueDate     DateTime
+  returnedAt  DateTime?
+
+  @@index([bookId])
+  @@index([borrowerId, status])
+}
+
+model FamilyInvite {
+  id        String             @id @default(cuid())
+  familyId  String
+  email     String
+  token     String             @unique
+  status    InviteStatus @default(PENDING)
+  createdAt DateTime           @default(now())
+  family    Family             @relation(fields: [familyId], references: [id])
+
+  @@index([familyId, status])
+  @@index([email])
+}

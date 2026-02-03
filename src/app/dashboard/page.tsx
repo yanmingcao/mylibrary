@@ -1,0 +1,399 @@
+"use client";
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Header } from '@/components/layout/Header';
+import { Button, Card, CardBody, CardTitle, CardDescription, CardFooter } from '@/components/ui';
+import { useAuth } from '@/context/AuthContext';
+
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  description?: string;
+  coverImage?: string;
+  condition: 'NEW' | 'GOOD' | 'FAIR' | 'WORN';
+  isAvailable: boolean;
+}
+
+interface Borrowing {
+  id: string;
+  book: {
+    id: string;
+    title: string;
+    author: string;
+    coverImage?: string;
+  };
+  borrower: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  status: 'REQUESTED' | 'APPROVED' | 'PICKED_UP' | 'RETURNED';
+  requestedAt: string;
+  dueDate: string;
+  returnedAt?: string;
+}
+
+export default function DashboardPage() {
+  const { dbUser } = useAuth();
+  const [myBooks, setMyBooks] = useState<Book[]>([]);
+  const [myBorrowings, setMyBorrowings] = useState<Borrowing[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<Borrowing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddBookForm, setShowAddBookForm] = useState(false);
+
+  useEffect(() => {
+    if (dbUser) {
+      fetchDashboardData();
+    }
+  }, [dbUser]);
+
+  const fetchDashboardData = async () => {
+    if (!dbUser) return;
+
+    try {
+      const [booksRes, borrowingsRes, pendingRes] = await Promise.all([
+        fetch(`/api/books?familyId=${dbUser.family.id}`),
+        fetch(`/api/borrowings?borrowerId=${dbUser.id}`),
+        fetch(`/api/borrowings?status=REQUESTED`)
+      ]);
+
+      const [booksData, borrowingsData, pendingData] = await Promise.all([
+        booksRes.json(),
+        borrowingsRes.json(),
+        pendingRes.json()
+      ]);
+
+      setMyBooks(booksData.books || []);
+      setMyBorrowings(borrowingsData.borrowings || []);
+      
+      // Filter pending requests for user's books
+      const userBookIds = booksData.books?.map((book: Book) => book.id) || [];
+      const userPendingRequests = pendingData.borrowings?.filter((req: Borrowing) => 
+        userBookIds.includes(req.book.id) && req.borrower.id !== dbUser.id
+      ) || [];
+      setPendingRequests(userPendingRequests);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBorrowingAction = async (borrowingId: string, action: 'approve' | 'reject' | 'return') => {
+    try {
+      const status = action === 'return' ? 'RETURNED' : action === 'approve' ? 'APPROVED' : 'RETURNED';
+      const response = await fetch(`/api/borrowings/${borrowingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+
+      if (response.ok) {
+        fetchDashboardData(); // Refresh data
+      }
+    } catch (error) {
+      console.error('Error handling borrowing action:', error);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'REQUESTED': return 'text-yellow-600 bg-yellow-100';
+      case 'APPROVED': return 'text-blue-600 bg-blue-100';
+      case 'PICKED_UP': return 'text-green-600 bg-green-100';
+      case 'RETURNED': return 'text-gray-600 bg-gray-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  if (!dbUser) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <p className="text-gray-500">Loading your dashboard...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">📊 Your Library</h1>
+          <p className="text-gray-600 mb-6">Manage your books and borrowing requests</p>
+          <p className="text-sm text-gray-500">
+            Family: <span className="font-medium">{dbUser.family.name}</span> • 
+            Address: <span className="font-medium">{dbUser.family.address}</span>
+          </p>
+        </div>
+        
+        {loading ? (
+          <div className="text-center">
+            <p className="text-gray-500">Loading your library...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* My Books */}
+            <Card>
+              <CardBody>
+                <div className="flex items-center justify-between mb-4">
+                  <CardTitle>📚 Your Books</CardTitle>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setShowAddBookForm(!showAddBookForm)}
+                  >
+                    + Add Book
+                  </Button>
+                </div>
+                
+                {myBooks.length === 0 ? (
+                  <p className="text-gray-500 text-sm mb-4">No books added yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {myBooks.map((book) => (
+                      <div key={book.id} className="border rounded-lg p-3">
+                        <h4 className="font-medium text-sm">{book.title}</h4>
+                        <p className="text-xs text-gray-600">{book.author}</p>
+                        <div className="flex items-center mt-2">
+                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(book.isAvailable ? 'APPROVED' : 'RETURNED')}`}>
+                            {book.isAvailable ? 'Available' : 'Borrowed'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+
+            {/* Current Loans */}
+            <Card>
+              <CardBody>
+                <CardTitle>📋 Current Loans</CardTitle>
+                {myBorrowings.length === 0 ? (
+                  <p className="text-gray-500 text-sm mb-4">No active borrowings</p>
+                ) : (
+                  <div className="space-y-3">
+                    {myBorrowings
+                      .filter(b => b.status !== 'RETURNED')
+                      .map((borrowing) => (
+                      <div key={borrowing.id} className="border rounded-lg p-3">
+                        <h4 className="font-medium text-sm">{borrowing.book.title}</h4>
+                        <p className="text-xs text-gray-600">{borrowing.book.author}</p>
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs mt-2 ${getStatusColor(borrowing.status)}`}>
+                          {borrowing.status}
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Due: {new Date(borrowing.dueDate).toLocaleDateString()}
+                        </p>
+                        {borrowing.status === 'PICKED_UP' && (
+                          <Button 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={() => handleBorrowingAction(borrowing.id, 'return')}
+                          >
+                            Return Book
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+
+            {/* Pending Requests */}
+            <Card>
+              <CardBody>
+                <CardTitle>📨 Pending Requests</CardTitle>
+                {pendingRequests.length === 0 ? (
+                  <p className="text-gray-500 text-sm mb-4">No pending requests</p>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingRequests.map((request) => (
+                      <div key={request.id} className="border rounded-lg p-3">
+                        <h4 className="font-medium text-sm">{request.book.title}</h4>
+                        <p className="text-xs text-gray-600">Requested by: {request.borrower.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(request.requestedAt).toLocaleDateString()}
+                        </p>
+                        <div className="flex gap-2 mt-2">
+                          <Button 
+                            size="sm" 
+                            variant="primary"
+                            onClick={() => handleBorrowingAction(request.id, 'approve')}
+                          >
+                            Approve
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="secondary"
+                            onClick={() => handleBorrowingAction(request.id, 'reject')}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+        )}
+
+        {/* Add Book Form Modal */}
+        {showAddBookForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">Add New Book</h3>
+              <AddBookForm 
+                familyId={dbUser.family.id} 
+                onSuccess={() => {
+                  setShowAddBookForm(false);
+                  fetchDashboardData();
+                }}
+                onCancel={() => setShowAddBookForm(false)}
+              />
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function AddBookForm({ familyId, onSuccess, onCancel }: {
+  familyId: string;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    title: '',
+    author: '',
+    isbn: '',
+    description: '',
+    coverImage: '',
+    condition: 'GOOD' as const
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          familyId
+        })
+      });
+
+      if (response.ok) {
+        onSuccess();
+      }
+    } catch (error) {
+      console.error('Error adding book:', error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Title *
+        </label>
+        <input
+          type="text"
+          required
+          value={formData.title}
+          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Author *
+        </label>
+        <input
+          type="text"
+          required
+          value={formData.author}
+          onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          ISBN
+        </label>
+        <input
+          type="text"
+          value={formData.isbn}
+          onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Condition
+        </label>
+        <select
+          value={formData.condition}
+          onChange={(e) => setFormData({ ...formData, condition: e.target.value as any })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="NEW">New</option>
+          <option value="GOOD">Good</option>
+          <option value="FAIR">Fair</option>
+          <option value="WORN">Worn</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Description
+        </label>
+        <textarea
+          rows={3}
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Cover Image URL
+        </label>
+        <input
+          type="url"
+          value={formData.coverImage}
+          onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div className="flex gap-2 pt-4">
+        <Button type="submit" variant="primary" fullWidth>
+          Add Book
+        </Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
