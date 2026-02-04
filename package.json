@@ -12,11 +12,15 @@
     "cypress:run:headed": "cypress run --headed",
     "cypress:run:chrome": "cypress run --browser chrome",
     "test:e2e": "cypress run",
-    "test:e2e:watch": "cypress open"
+    "test:e2e:watch": "cypress open",
+    "db:export": "node scripts/migrate-db.js export",
+    "db:import": "node scripts/migrate-db.js import",
+    "db:migrate": "prisma db push"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/adapter-better-sqlite3": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "better-sqlite3": "^12.6.2",
     "firebase": "^12.8.0",
     "firebase-admin": "^13.6.0",
     "next": "16.1.6",
