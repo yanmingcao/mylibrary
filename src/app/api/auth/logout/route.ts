@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
-import { sessionCookieName } from "@/lib/firebase/admin";
+import { clearSessionCookie, deleteSession, getSessionCookie } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
 export async function POST() {
-  const response = NextResponse.json({ status: "ok" });
-  response.cookies.set(sessionCookieName, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
+  const sessionToken = await getSessionCookie();
+  if (sessionToken) {
+    await deleteSession(sessionToken);
+  }
 
+  const response = NextResponse.json({ status: "ok" });
+  clearSessionCookie(response);
   return response;
 }

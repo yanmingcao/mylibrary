@@ -1,13 +1,10 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAdminAuth, sessionCookieName } from "@/lib/firebase/admin";
-import { prisma } from "@/lib/prisma";
+import { getSessionCookie, getSessionUser } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(sessionCookieName)?.value;
+  const sessionCookie = await getSessionCookie();
 
   if (!sessionCookie) {
     return NextResponse.json(
@@ -19,14 +16,8 @@ export async function GET() {
   }
 
   try {
-    const adminAuth = getAdminAuth();
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
-      select: { isActive: true },
-    });
-
-    if (!user || !user.isActive) {
+    const user = await getSessionUser(sessionCookie);
+    if (!user) {
       return NextResponse.json(
         { authenticated: false },
         {
@@ -35,7 +26,7 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ authenticated: true, uid: decoded.uid });
+    return NextResponse.json({ authenticated: true, uid: user.id });
   } catch (error) {
     return NextResponse.json(
       { authenticated: false },

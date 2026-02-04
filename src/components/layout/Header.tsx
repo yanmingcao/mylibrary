@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useLocale } from '@/context/LocaleContext';
 
 export function Header() {
-  const { user, loading, signOut } = useAuth();
+  const { dbUser, loading, signOut } = useAuth();
   const { locale, setLocale, t } = useLocale();
   const router = useRouter();
 
@@ -44,7 +44,7 @@ export function Header() {
             >
               {t('navMap')}
             </Link>
-            {user && (
+            {dbUser?.role === "ADMIN" && (
               <Link
                 href="/admin"
                 className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium"
@@ -63,10 +63,10 @@ export function Header() {
             </button>
             {loading ? (
               <div className="animate-pulse">{t('loading')}</div>
-            ) : user ? (
+            ) : dbUser ? (
               <div className="flex items-center space-x-3">
                 <span className="text-sm text-gray-700">
-                  {t('welcome')}, {user.displayName || user.email}
+                  {t('welcome')}, {dbUser.name || dbUser.email}
                 </span>
                 <button
                   className="text-gray-500 hover:text-gray-700"

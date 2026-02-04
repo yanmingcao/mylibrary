@@ -4,11 +4,20 @@ import Link from "next/link";
 import { useLocale } from "@/context/LocaleContext";
 
 export default function Home() {
-  const { t } = useLocale();
+  const { locale, setLocale, t } = useLocale();
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 font-sans">
       <main className="flex min-h-screen w-full max-w-6xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-gray-900 sm:items-start">
         <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left w-full">
+          <div className="flex w-full justify-center sm:justify-end">
+            <button
+              type="button"
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+              onClick={() => setLocale(locale === "zh-Hans" ? "en" : "zh-Hans")}
+            >
+              {locale === "zh-Hans" ? t("languageEnglish") : t("languageChinese")}
+            </button>
+          </div>
           <h1 className="text-4xl font-bold leading-10 tracking-tight text-gray-900 dark:text-white mb-4">
             {t("homeTitle")}
           </h1>

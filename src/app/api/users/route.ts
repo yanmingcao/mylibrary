@@ -4,12 +4,12 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const firebaseUid = searchParams.get('firebaseUid');
     const email = searchParams.get('email');
+    const id = searchParams.get('id');
     
-    if (!firebaseUid && !email) {
+    if (!id && !email) {
       return NextResponse.json(
-        { error: 'Firebase UID or email is required' },
+        { error: 'User id or email is required' },
         { status: 400 }
       );
     }
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { firebaseUid: firebaseUid || undefined },
+          { id: id || undefined },
           { email: email || undefined }
         ]
       },
@@ -80,11 +80,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, name, firebaseUid, familyId, role } = body;
+    const { email, name, familyId, role } = body;
     
-    if (!email || !name || !firebaseUid || !familyId) {
+    if (!email || !name || !familyId) {
       return NextResponse.json(
-        { error: 'Email, name, firebaseUid, and familyId are required' },
+        { error: 'Email, name, and familyId are required' },
         { status: 400 }
       );
     }
@@ -93,15 +93,14 @@ export async function POST(request: NextRequest) {
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
-          { email },
-          { firebaseUid }
+          { email }
         ]
       }
     });
     
     if (existingUser) {
       return NextResponse.json(
-        { error: 'User with this email or Firebase UID already exists' },
+        { error: 'User with this email already exists' },
         { status: 400 }
       );
     }
@@ -122,7 +121,6 @@ export async function POST(request: NextRequest) {
       data: {
         email,
         name,
-        firebaseUid,
         familyId,
         role: role || 'MEMBER'
       },

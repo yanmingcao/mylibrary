@@ -13,6 +13,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [resetLink, setResetLink] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -31,6 +32,10 @@ export default function ForgotPasswordPage() {
       if (response.ok) {
         console.log('Forgot password success:', data);
         setSuccess(true);
+        setResetLink(data.resetLink || null);
+        if (data.resetLink) {
+          router.push(data.resetLink);
+        }
       } else {
         console.error('Forgot password error:', data);
         setError(data.error || 'Failed to send reset link');
@@ -55,6 +60,14 @@ export default function ForgotPasswordPage() {
         {success ? (
           <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
             {t("forgotPasswordSuccess")}
+            {resetLink && (
+              <div className="mt-3 break-all text-xs text-green-700">
+                <span className="font-medium">Reset link: </span>
+                <a className="underline" href={resetLink}>
+                  {resetLink}
+                </a>
+              </div>
+            )}
             <div className="mt-4">
               <Link 
                 href="/login" 

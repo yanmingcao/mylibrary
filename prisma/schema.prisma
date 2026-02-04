@@ -44,17 +44,42 @@ model User {
   id          String   @id @default(cuid())
   email       String   @unique
   name        String
-  firebaseUid String   @unique
+  passwordHash String?
   role        UserRole @default(MEMBER)
   isActive    Boolean  @default(true)
   familyId    String
   family      Family   @relation(fields: [familyId], references: [id])
   borrowings  Borrowing[]
   adminAudits AdminAudit[]
+  sessions    Session[]
+  passwordResetTokens PasswordResetToken[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([familyId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Family {

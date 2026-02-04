@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getAdminAuth, sessionCookieName } from "@/lib/firebase/admin";
+import { getSessionCookie, getSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
 type AuthUser = {
@@ -18,11 +17,6 @@ type AuthResult =
 
 type AdminAuthResult = AuthResult;
 
-async function getSessionCookie() {
-  const cookieStore = await cookies();
-  return cookieStore.get(sessionCookieName)?.value;
-}
-
 export async function requireAuth(): Promise<AuthResult> {
   const sessionCookie = await getSessionCookie();
 
@@ -33,21 +27,8 @@ export async function requireAuth(): Promise<AuthResult> {
   }
 
   try {
-    const adminAuth = getAdminAuth();
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        isActive: true,
-        familyId: true,
-      },
-    });
-
-    if (!user || !user.isActive) {
+    const user = await getSessionUser(sessionCookie);
+    if (!user) {
       return {
         response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
       };

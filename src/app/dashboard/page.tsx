@@ -267,7 +267,7 @@ export default function DashboardPage() {
         {/* Add Book Form Modal */}
         {showAddBookForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-semibold mb-4">{t('addBookTitle')}</h3>
               <AddBookForm 
                 familyId={dbUser.family.id} 
@@ -283,7 +283,7 @@ export default function DashboardPage() {
 
         {editingBook && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-semibold mb-4">{t('editBookTitle')}</h3>
               <EditBookForm
                 book={editingBook}

@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const sessionCookieName =
-    process.env.FIREBASE_SESSION_COOKIE_NAME ?? "firebase-session";
+    process.env.SESSION_COOKIE_NAME ?? "session";
   const cookieHeader = request.headers.get("cookie") ?? "";
   const sessionCookie = request.cookies.get(sessionCookieName)?.value;
 

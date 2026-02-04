@@ -1,68 +1,69 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
-import { getAdminApp } from '@/lib/firebase/admin';
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import { prisma } from "@/lib/prisma";
+import { hashToken, getExpiryDateFromNowMs } from "@/lib/auth/session";
+
+const resetExpiresHours = Number(process.env.RESET_TOKEN_EXPIRES_HOURS ?? "1");
+
+export const runtime = "nodejs";
+
+function getResetLink(token: string) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return `${baseUrl}/reset-password?token=${token}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
 
-    if (!email) {
+    if (!normalizedEmail) {
       return NextResponse.json(
-        { error: 'Email is required' },
+        { error: "Email is required" },
         { status: 400 }
       );
     }
 
-    console.log('Environment check:', {
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
-      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY?.substring(0, 20) + '...',
-      appUrl: process.env.NEXT_PUBLIC_APP_URL
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
     });
 
-    const adminApp = getAdminApp();
-    const adminAuth = getAuth(adminApp);
-    
-    // Check if we can access auth
-    try {
-      const users = await adminAuth.listUsers(1);
-      console.log('Firebase Admin connection OK, found users:', users.users.length);
-    } catch (testError: any) {
-      console.error('Firebase Admin connection failed:', testError.message);
+    if (!user) {
+      return NextResponse.json({
+        message: "If this email is registered, you will receive a password reset link.",
+      });
     }
-    
-    // Try with explicit settings
-    const resetLink = await adminAuth.generatePasswordResetLink(email, {
-      url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password`,
-      handleCodeInApp: true,
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashToken(token);
+    const expiresAt = getExpiryDateFromNowMs(resetExpiresHours * 60 * 60 * 1000);
+
+    await prisma.passwordResetToken.deleteMany({
+      where: {
+        userId: user.id,
+        usedAt: null,
+      },
     });
 
-    console.log('Password reset link generated:', { email, resetLink });
-    
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    const link = getResetLink(token);
+
     return NextResponse.json({
-      message: 'If this email is registered, you will receive a password reset link.',
-      resetLink // Return for testing in development
+      message: "If this email is registered, you will receive a password reset link.",
+      resetLink: link,
     });
-  } catch (error: any) {
-    console.error('Error sending password reset:', error);
-    
-    // Check for specific Firebase errors
-    if (error.code === 'auth/configuration-not-found') {
-      return NextResponse.json(
-        { error: 'Firebase configuration error: Email provider not enabled', details: error.message },
-        { status: 500 }
-      );
-    }
-    
-    if (error.code === 'auth/invalid-continue-uri') {
-      return NextResponse.json(
-        { error: 'Invalid reset URL configuration', details: error.message },
-        { status: 500 }
-      );
-    }
-    
+  } catch (error) {
+    console.error("Error sending password reset:", error);
     return NextResponse.json(
-      { error: 'Failed to send password reset link', details: error.message },
+      { error: "Failed to send password reset link" },
       { status: 500 }
     );
   }

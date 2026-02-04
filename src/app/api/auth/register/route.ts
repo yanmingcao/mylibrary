@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase/admin';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import { createSession, setSessionCookie } from "@/lib/auth/session";
+
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,24 +12,42 @@ export async function POST(request: NextRequest) {
       email,
       password,
       name,
-      firebaseUid,
       familyId,
       familyName,
       address,
       phone,
       familyEmail,
     } = body;
-    
-    // For Google sign-in, firebaseUid is provided instead of password
-    if (!email || !name || (!password && !firebaseUid)) {
+
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+
+    if (!normalizedEmail || !password || !name) {
       return NextResponse.json(
-        { error: 'Email, name, and either password or firebaseUid are required' },
+        { error: "Email, password, and name are required" },
         { status: 400 }
       );
     }
 
-    // If familyId is not provided, create a new family
-    let targetFamilyId = familyId;
+    if (typeof password !== "string" || password.length < 6) {
+      return NextResponse.json(
+        { error: "Password must be at least 6 characters" },
+        { status: 400 }
+      );
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "User with this email already exists" },
+        { status: 400 }
+      );
+    }
+
+    let targetFamilyId = familyId as string | undefined;
 
     if (!targetFamilyId && familyName && address) {
       try {
@@ -65,34 +86,22 @@ export async function POST(request: NextRequest) {
 
       targetFamilyId = existingFamily.id;
     }
-    
+
     if (!targetFamilyId) {
       return NextResponse.json(
-        { error: 'Either familyId or familyName and address are required' },
+        { error: "Family information is required" },
         { status: 400 }
       );
     }
 
-    // Create Firebase user (skip if already authenticated via Google)
-    let finalFirebaseUid = firebaseUid;
-    if (!finalFirebaseUid) {
-      const adminAuth = getAdminAuth();
-      const firebaseUser = await adminAuth.createUser({
-        email,
-        password,
-        displayName: name
-      });
-      finalFirebaseUid = firebaseUser.uid;
-    }
-
-    // Create database user
+    const passwordHash = await bcrypt.hash(password, 10);
     const dbUser = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         name,
-        firebaseUid: finalFirebaseUid,
+        passwordHash,
         familyId: targetFamilyId,
-        role: 'MEMBER'
+        role: "MEMBER",
       },
       include: {
         family: {
@@ -101,20 +110,16 @@ export async function POST(request: NextRequest) {
             name: true,
             address: true,
             phone: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+      },
     });
 
-    return NextResponse.json({
-      firebaseUser: {
-        uid: finalFirebaseUid,
-        email: dbUser.email,
-        displayName: dbUser.name
-      },
-      dbUser
-    }, { status: 201 });
+    const { token, expiresAt } = await createSession(dbUser.id);
+    const response = NextResponse.json({ dbUser }, { status: 201 });
+    setSessionCookie(response, token, expiresAt);
+    return response;
   } catch (error: any) {
     const errorPayload = {
       message: error?.message,
@@ -123,44 +128,10 @@ export async function POST(request: NextRequest) {
       stack: error?.stack,
       details: error,
     };
-    console.error('Error registering user:', errorPayload);
-    
-    // Handle Firebase specific errors
-    if (error.code) {
-      switch (error.code) {
-        case 'auth/email-already-exists':
-          return NextResponse.json(
-            { error: 'Email already exists' },
-            { status: 400 }
-          );
-        case 'auth/weak-password':
-          return NextResponse.json(
-            { error: 'Password is too weak' },
-            { status: 400 }
-          );
-        case 'auth/invalid-email':
-          return NextResponse.json(
-            { error: 'Invalid email address' },
-            { status: 400 }
-          );
-        default:
-          return NextResponse.json(
-            { error: 'Firebase error: ' + error.message },
-            { status: 500 }
-          );
-      }
-    }
-    
-    // Handle Prisma specific errors
-    if (error.code === 'P2002') {
-      return NextResponse.json(
-        { error: 'A user with this email already exists in the database' },
-        { status: 400 }
-      );
-    }
-    
+    console.error("Error registering user:", errorPayload);
+
     return NextResponse.json(
-      { error: 'Failed to register user' },
+      { error: "Failed to register user" },
       { status: 500 }
     );
   }

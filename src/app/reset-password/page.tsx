@@ -10,7 +10,7 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useLocale();
-  const oobCode = searchParams.get("oobCode") || "";
+  const token = searchParams.get("token") || "";
   
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,10 +20,10 @@ export default function ResetPasswordPage() {
 
   // If no code, redirect to forgot password
   useEffect(() => {
-    if (!oobCode) {
+    if (!token) {
       router.push("/forgot-password");
     }
-  }, [oobCode, router]);
+  }, [token, router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -45,7 +45,7 @@ export default function ResetPasswordPage() {
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oobCode, newPassword }),
+        body: JSON.stringify({ token, newPassword }),
       });
 
       const data = await response.json();
@@ -62,7 +62,7 @@ export default function ResetPasswordPage() {
     }
   };
 
-  if (!oobCode) return null;
+  if (!token) return null;
 
   return (
     <Suspense>
