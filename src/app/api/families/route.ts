@@ -85,16 +85,27 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const family = await prisma.family.create({
-      data: {
-        name,
-        address,
-        latitude,
-        longitude,
-        phone,
-        email
+    let family;
+    try {
+      family = await prisma.family.create({
+        data: {
+          name,
+          address,
+          latitude,
+          longitude,
+          phone,
+          email,
+        },
+      });
+    } catch (error: any) {
+      if (error?.code === "P2002") {
+        return NextResponse.json(
+          { error: "Family name already exists" },
+          { status: 400 }
+        );
       }
-    });
+      throw error;
+    }
     
     return NextResponse.json(family, { status: 201 });
   } catch (error) {

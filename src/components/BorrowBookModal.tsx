@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/context/AuthContext';
+import { useLocale } from '@/context/LocaleContext';
 
 interface BorrowBookModalProps {
   book: {
@@ -22,6 +23,7 @@ interface BorrowBookModalProps {
 
 export function BorrowBookModal({ book, isOpen, onClose, onSuccess }: BorrowBookModalProps) {
   const { dbUser } = useAuth();
+  const { t } = useLocale();
   const [dueDate, setDueDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export function BorrowBookModal({ book, isOpen, onClose, onSuccess }: BorrowBook
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dbUser) {
-      setError('You must be logged in to request a book');
+      setError(t('mustLogin'));
       return;
     }
 
@@ -60,10 +62,10 @@ export function BorrowBookModal({ book, isOpen, onClose, onSuccess }: BorrowBook
         onSuccess();
         onClose();
       } else {
-        setError(data.error || 'Failed to request book');
+        setError(data.error || t('requestFailed'));
       }
     } catch (error) {
-      setError('Network error. Please try again.');
+      setError(t('networkError'));
     } finally {
       setLoading(false);
     }
@@ -74,20 +76,20 @@ export function BorrowBookModal({ book, isOpen, onClose, onSuccess }: BorrowBook
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 className="text-lg font-semibold mb-4">Request to Borrow Book</h3>
+        <h3 className="text-lg font-semibold mb-4">{t('requestBorrowTitle')}</h3>
         
         <div className="mb-4 p-3 bg-gray-50 rounded-lg">
           <h4 className="font-medium">{book.title}</h4>
-          <p className="text-sm text-gray-600">by {book.author}</p>
+          <p className="text-sm text-gray-600">{book.author}</p>
           <p className="text-sm text-gray-500 mt-1">
-            From: {book.family.name}
+            {t('fromLabel')}: {book.family.name}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Due Date *
+              {t('dueDateLabel')}
             </label>
             <input
               type="date"
@@ -100,8 +102,8 @@ export function BorrowBookModal({ book, isOpen, onClose, onSuccess }: BorrowBook
           </div>
 
           <div className="text-sm text-gray-500">
-            <p>You can borrow this book for up to 30 days.</p>
-            <p>The book owner will be notified of your request.</p>
+            <p>{t('borrowNote1')}</p>
+            <p>{t('borrowNote2')}</p>
           </div>
 
           {error && (
@@ -117,7 +119,7 @@ export function BorrowBookModal({ book, isOpen, onClose, onSuccess }: BorrowBook
               disabled={loading}
               className="flex-1"
             >
-              {loading ? 'Requesting...' : 'Request Book'}
+              {loading ? t('requesting') : t('requestBook')}
             </Button>
             <Button
               type="button"
@@ -125,7 +127,7 @@ export function BorrowBookModal({ book, isOpen, onClose, onSuccess }: BorrowBook
               onClick={onClose}
               disabled={loading}
             >
-              Cancel
+              {t('cancel')}
             </Button>
           </div>
         </form>

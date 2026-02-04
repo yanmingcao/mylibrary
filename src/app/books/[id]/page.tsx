@@ -6,12 +6,14 @@ import { Header } from '@/components/layout/Header';
 import { Button, Card, CardBody, CardTitle, CardDescription } from '@/components/ui';
 import { BorrowBookModal } from '@/components/BorrowBookModal';
 import { useAuth } from '@/context/AuthContext';
+import { useLocale } from '@/context/LocaleContext';
 
 interface Book {
   id: string;
   title: string;
   author: string;
   isbn?: string;
+  language?: string;
   description?: string;
   coverImage?: string;
   condition: 'NEW' | 'GOOD' | 'FAIR' | 'WORN';
@@ -40,6 +42,7 @@ export default function BookDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { dbUser } = useAuth();
+  const { t } = useLocale();
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +59,7 @@ export default function BookDetailPage() {
       const response = await fetch(`/api/books/${id}`);
       if (!response.ok) {
         if (response.status === 404) {
-          setError('Book not found');
+          setError(t('booksNone'));
         } else {
           throw new Error('Failed to fetch book');
         }
@@ -67,7 +70,7 @@ export default function BookDetailPage() {
       setBook(data);
       setError(null);
     } catch (err) {
-      setError('Error loading book details');
+      setError(t('errorLoadingBooks'));
       console.error('Error fetching book:', err);
     } finally {
       setLoading(false);
@@ -94,6 +97,19 @@ export default function BookDetailPage() {
     }
   };
 
+  const getLanguageLabel = (language?: string) => {
+    switch (language) {
+      case 'EN':
+        return 'English';
+      case 'ZH_HANS':
+        return 'Simplified Chinese';
+      case 'ZH_HANT':
+        return 'Traditional Chinese';
+      default:
+        return language || '';
+    }
+  };
+
   const handleBorrowRequest = () => {
     if (!dbUser) {
       router.push('/login');
@@ -101,7 +117,7 @@ export default function BookDetailPage() {
     }
 
     if (!book || book.family.id === dbUser.family.id) {
-      setError('You cannot borrow books from your own family.');
+      setError(t('requestOwnFamilyError'));
       return;
     }
 
@@ -140,9 +156,9 @@ export default function BookDetailPage() {
         <Header />
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Error</h1>
-            <p className="text-gray-600 mb-4">{error || 'Book not found'}</p>
-            <Button onClick={() => router.back()}>Go Back</Button>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('errorTitle')}</h1>
+            <p className="text-gray-600 mb-4">{error || t('booksNone')}</p>
+            <Button onClick={() => router.back()}>{t('goBack')}</Button>
           </div>
         </main>
       </div>
@@ -159,7 +175,7 @@ export default function BookDetailPage() {
           onClick={() => router.back()}
           className="mb-6"
         >
-          ← Back to Books
+          {t('backToBooks')}
         </Button>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -179,24 +195,32 @@ export default function BookDetailPage() {
 
             <Card className="mt-6">
               <CardBody>
-                <CardTitle className="mb-3">Book Information</CardTitle>
+                <CardTitle className="mb-3">{t('bookInfo')}</CardTitle>
                 <div className="space-y-2">
                   {book.isbn && (
                     <div>
-                      <span className="text-sm font-medium text-gray-700">ISBN:</span>
+                      <span className="text-sm font-medium text-gray-700">{t('isbnLabel')}:</span>
                       <span className="ml-2 text-sm text-gray-600">{book.isbn}</span>
                     </div>
                   )}
+                  {book.language && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">{t('languageLabel')}:</span>
+                      <span className="ml-2 text-sm text-gray-600">
+                        {getLanguageLabel(book.language)}
+                      </span>
+                    </div>
+                  )}
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Condition:</span>
+                    <span className="text-sm font-medium text-gray-700">{t('conditionLabel')}:</span>
                     <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getConditionColor(book.condition)}`}>
                       {book.condition}
                     </span>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Status:</span>
+                    <span className="text-sm font-medium text-gray-700">{t('statusLabel')}:</span>
                     <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getStatusColor(book.isAvailable ? 'APPROVED' : 'RETURNED')}`}>
-                      {book.isAvailable ? 'Available' : 'Currently Borrowed'}
+                      {book.isAvailable ? t('available') : t('borrowedStatus')}
                     </span>
                   </div>
                 </div>
@@ -212,7 +236,7 @@ export default function BookDetailPage() {
               
               {book.description && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Description</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">{t('descriptionLabel')}</h3>
                   <p className="text-gray-700 leading-relaxed">{book.description}</p>
                 </div>
               )}
@@ -221,7 +245,7 @@ export default function BookDetailPage() {
             {/* Family Information */}
             <Card className="mb-6">
               <CardBody>
-                <CardTitle className="mb-3">Shared By</CardTitle>
+              <CardTitle className="mb-3">{t('sharedBy')}</CardTitle>
                 <div className="space-y-2">
                   <h4 className="font-medium text-gray-900">{book.family.name}</h4>
                   <p className="text-sm text-gray-600">📍 {book.family.address}</p>
@@ -239,17 +263,17 @@ export default function BookDetailPage() {
             {book.borrowings.length > 0 && (
               <Card className="mb-6">
                 <CardBody>
-                  <CardTitle className="mb-3">Borrowing Status</CardTitle>
+                <CardTitle className="mb-3">{t('borrowingStatus')}</CardTitle>
                   <div className="space-y-3">
                     {book.borrowings.map((borrowing) => (
                       <div key={borrowing.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                         <div>
                           <p className="text-sm font-medium">{borrowing.borrower.name}</p>
                           <p className="text-xs text-gray-500">
-                            Requested {new Date(borrowing.requestedAt).toLocaleDateString()}
+                            {t('requestedLabel')} {new Date(borrowing.requestedAt).toLocaleDateString()}
                           </p>
                           <p className="text-xs text-gray-500">
-                            Due {new Date(borrowing.dueDate).toLocaleDateString()}
+                            {t('dueDate')} {new Date(borrowing.dueDate).toLocaleDateString()}
                           </p>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(borrowing.status)}`}>
@@ -271,30 +295,30 @@ export default function BookDetailPage() {
                   fullWidth
                   onClick={handleBorrowRequest}
                 >
-                  Request to Borrow
+                  {t('requestBorrow')}
                 </Button>
               )}
               
               {book.family.id === dbUser?.family.id && (
                 <div className="text-center">
-                  <p className="text-sm text-gray-500 mb-3">This book is from your family</p>
+                  <p className="text-sm text-gray-500 mb-3">{t('ownFamilyBook')}</p>
                   <Button
                     variant="secondary"
                     onClick={() => router.push('/dashboard')}
                   >
-                    Manage Your Books
+                    {t('manageBooks')}
                   </Button>
                 </div>
               )}
               
               {!book.isAvailable && book.family.id !== dbUser?.family.id && (
                 <div className="text-center">
-                  <p className="text-sm text-gray-500 mb-3">This book is currently borrowed</p>
+                  <p className="text-sm text-gray-500 mb-3">{t('borrowedStatus')}</p>
                   <Button
                     variant="secondary"
                     onClick={() => router.push('/books')}
                   >
-                    Browse Other Books
+                    {t('browseOtherBooks')}
                   </Button>
                 </div>
               )}

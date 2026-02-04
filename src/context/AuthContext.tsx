@@ -12,10 +12,11 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut as firebaseSignOut,
   User,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase/client";
+import { auth, googleProvider } from "@/lib/firebase/client";
 
 interface DatabaseUser {
   id: string;
@@ -32,11 +33,17 @@ interface DatabaseUser {
   };
 }
 
+interface GoogleSignInResult {
+  firebaseUser: User;
+  isNewUser: boolean;
+}
+
 type AuthContextValue = {
   user: User | null;
   dbUser: DatabaseUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<GoogleSignInResult>;
   register: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshDbUser: () => Promise<void>;
@@ -113,6 +120,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await createSessionCookie(idToken);
   }, []);
 
+  const signInWithGoogleFn = useCallback(async (): Promise<GoogleSignInResult> => {
+    const credential = await signInWithPopup(auth, googleProvider);
+    const idToken = await credential.user.getIdToken();
+    await createSessionCookie(idToken);
+
+    // Check if DB user exists
+    const response = await fetch(`/api/users?firebaseUid=${credential.user.uid}`);
+    const isNewUser = !response.ok;
+
+    return { firebaseUser: credential.user, isNewUser };
+  }, []);
+
   const register = useCallback(async (email: string, password: string) => {
     const credential = await createUserWithEmailAndPassword(
       auth,
@@ -134,11 +153,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       dbUser,
       loading,
       signIn,
+      signInWithGoogle: signInWithGoogleFn,
       register,
       signOut,
       refreshDbUser,
     }),
-    [user, dbUser, loading, signIn, register, signOut, refreshDbUser]
+    [user, dbUser, loading, signIn, signInWithGoogleFn, register, signOut, refreshDbUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

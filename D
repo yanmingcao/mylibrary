@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-node "/c/Users/caoyanming/AppData/Roaming/npm/node_modules/typescript-language-server/lib/cli.mjs" "$@"

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizeIsbn } from '@/lib/isbn';
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, author, isbn, description, coverImage, condition, familyId } = body;
+    const { title, author, isbn, language, description, coverImage, condition, familyId } = body;
     
     if (!title || !author || !familyId) {
       return NextResponse.json(
@@ -80,12 +81,16 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Normalize ISBN to ISBN-13 if provided
+    const normalizedIsbn = isbn ? (normalizeIsbn(isbn) ?? isbn) : isbn;
     
     const book = await prisma.book.create({
       data: {
         title,
         author,
-        isbn,
+        isbn: normalizedIsbn,
+        language,
         description,
         coverImage,
         condition: condition || 'GOOD',

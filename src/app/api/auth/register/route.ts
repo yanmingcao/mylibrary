@@ -5,29 +5,65 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name, familyId, familyName, address, phone, familyEmail } = body;
+    const {
+      email,
+      password,
+      name,
+      firebaseUid,
+      familyId,
+      familyName,
+      address,
+      phone,
+      familyEmail,
+    } = body;
     
-    if (!email || !password || !name) {
+    // For Google sign-in, firebaseUid is provided instead of password
+    if (!email || !name || (!password && !firebaseUid)) {
       return NextResponse.json(
-        { error: 'Email, password, and name are required' },
+        { error: 'Email, name, and either password or firebaseUid are required' },
         { status: 400 }
       );
     }
 
     // If familyId is not provided, create a new family
     let targetFamilyId = familyId;
-    
+
     if (!targetFamilyId && familyName && address) {
-      // Create new family
-      const newFamily = await prisma.family.create({
-        data: {
-          name: familyName,
-          address,
-          phone,
-          email: familyEmail
+      try {
+        const newFamily = await prisma.family.create({
+          data: {
+            name: familyName,
+            address,
+            phone,
+            email: familyEmail,
+          },
+        });
+        targetFamilyId = newFamily.id;
+      } catch (error: any) {
+        if (error?.code === "P2002") {
+          return NextResponse.json(
+            { error: "Family name already exists. Join the existing family instead." },
+            { status: 400 }
+          );
         }
+        throw error;
+      }
+    }
+
+    if (!targetFamilyId && familyName && !address) {
+      const existingFamily = await prisma.family.findFirst({
+        where: { name: familyName },
+        select: { id: true },
       });
-      targetFamilyId = newFamily.id;
+
+      if (!existingFamily) {
+        return NextResponse.json(
+          { error: "Family not found. Create a new family with an address." },
+          { status: 404 }
+        );
+      }
+
+      targetFamilyId = existingFamily.id;
     }
     
     if (!targetFamilyId) {
@@ -37,20 +73,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create Firebase user
-    const adminAuth = getAdminAuth();
-    const firebaseUser = await adminAuth.createUser({
-      email,
-      password,
-      displayName: name
-    });
+    // Create Firebase user (skip if already authenticated via Google)
+    let finalFirebaseUid = firebaseUid;
+    if (!finalFirebaseUid) {
+      const adminAuth = getAdminAuth();
+      const firebaseUser = await adminAuth.createUser({
+        email,
+        password,
+        displayName: name
+      });
+      finalFirebaseUid = firebaseUser.uid;
+    }
 
     // Create database user
     const dbUser = await prisma.user.create({
       data: {
         email,
         name,
-        firebaseUid: firebaseUser.uid,
+        firebaseUid: finalFirebaseUid,
         familyId: targetFamilyId,
         role: 'MEMBER'
       },
@@ -69,14 +109,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       firebaseUser: {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        displayName: firebaseUser.displayName
+        uid: finalFirebaseUid,
+        email: dbUser.email,
+        displayName: dbUser.name
       },
       dbUser
     }, { status: 201 });
   } catch (error: any) {
-    console.error('Error registering user:', error);
+    const errorPayload = {
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+      stack: error?.stack,
+      details: error,
+    };
+    console.error('Error registering user:', errorPayload);
     
     // Handle Firebase specific errors
     if (error.code) {

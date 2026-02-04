@@ -1,13 +1,22 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 declare global {
   var prismaGlobal: PrismaClient | undefined;
 }
 
-const prismaGlobal = globalThis as unknown as { prismaGlobal?: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prismaGlobal?: PrismaClient };
+const databaseUrl = process.env.DATABASE_URL;
 
-export const prisma = prismaGlobal.prismaGlobal ?? new PrismaClient();
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is not set");
+}
+
+const adapter = new PrismaPg({ connectionString: databaseUrl });
+
+export const prisma =
+  globalForPrisma.prismaGlobal ?? new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== "production") {
-  prismaGlobal.prismaGlobal = prisma;
+  globalForPrisma.prismaGlobal = prisma;
 }

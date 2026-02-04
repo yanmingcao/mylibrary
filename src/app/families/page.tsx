@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Button, Card, CardBody, CardTitle, CardDescription } from '@/components/ui';
+import { useLocale } from '@/context/LocaleContext';
 
 interface Family {
   id: string;
@@ -42,6 +43,7 @@ export default function FamiliesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const { t } = useLocale();
 
   const fetchFamilies = async (searchQuery = searchTerm, currentPage = page) => {
     try {
@@ -91,23 +93,23 @@ export default function FamiliesPage() {
       
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">👨‍👩‍👧‍👦 Community Families</h1>
-          <p className="text-gray-600 mb-6">See who's sharing books in your neighborhood</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('familiesTitle')}</h1>
+          <p className="text-gray-600 mb-6">{t('familiesSubtitle')}</p>
         </div>
         
         {/* Search */}
         <div className="bg-white p-6 rounded-lg shadow mb-6">
           <div className="max-w-md">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search Families
-            </label>
-            <input
-              type="text"
-              placeholder="Search by family name or address..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('searchFamiliesLabel')}
+              </label>
+              <input
+                type="text"
+                placeholder={t('searchFamiliesPlaceholder')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
           </div>
         </div>
 
@@ -125,14 +127,14 @@ export default function FamiliesPage() {
         ) : error ? (
           <div className="bg-white p-6 rounded-lg shadow text-center">
             <p className="text-red-600 mb-4">{error}</p>
-            <Button onClick={() => fetchFamilies()}>Try Again</Button>
+            <Button onClick={() => fetchFamilies()}>{t('search')}</Button>
           </div>
         ) : families.length === 0 ? (
           <div className="bg-white p-12 rounded-lg shadow text-center">
             <p className="text-gray-500 text-lg mb-4">
               {searchTerm ? 
-                'No families found matching your search.' : 
-                'No families have joined yet.'}
+                t('noFamiliesSearch') : 
+                t('noFamilies')}
             </p>
           </div>
         ) : (
@@ -164,12 +166,12 @@ export default function FamiliesPage() {
                       <div className="flex items-center justify-between pt-2 border-t">
                         <div className="flex items-center">
                           <span className="font-medium mr-2">👥</span>
-                          {family._count.users} {family._count.users === 1 ? 'member' : 'members'}
+                          {family._count.users} {t('members')}
                         </div>
                         
                         <div className="flex items-center">
                           <span className="font-medium mr-2">📚</span>
-                          {family._count.books} {family._count.books === 1 ? 'book' : 'books'}
+                          {family._count.books} {t('booksCount')}
                         </div>
                       </div>
                     </div>
@@ -177,14 +179,14 @@ export default function FamiliesPage() {
                     {/* Family Members */}
                     {family.users.length > 0 && (
                       <div className="mt-4 pt-4 border-t">
-                        <p className="text-xs font-medium text-gray-700 mb-2">Members:</p>
+                        <p className="text-xs font-medium text-gray-700 mb-2">{t('membersLabel')}</p>
                         <div className="space-y-1">
                           {family.users.map((user) => (
                             <div key={user.id} className="flex items-center justify-between text-xs">
                               <span className="text-gray-600">{user.name}</span>
                               {user.role === 'ADMIN' && (
                                 <span className="px-1 py-0.5 bg-blue-100 text-blue-700 rounded-full">
-                                  Admin
+                                  {t('adminBadge')}
                                 </span>
                               )}
                             </div>
@@ -206,10 +208,10 @@ export default function FamiliesPage() {
                   onClick={() => setPage(page - 1)}
                   disabled={page === 1}
                 >
-                  Previous
+                  {t('previous')}
                 </Button>
                 <span className="px-4 py-2 text-sm text-gray-600">
-                  Page {page} of {totalPages}
+                  {page} / {totalPages}
                 </span>
                 <Button
                   variant="secondary"
@@ -217,7 +219,7 @@ export default function FamiliesPage() {
                   onClick={() => setPage(page + 1)}
                   disabled={page === totalPages}
                 >
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             )}

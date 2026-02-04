@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { Button, Input, Card, CardImage, CardBody, CardTitle, CardDescription, CardFooter } from '@/components/ui';
 import { BorrowBookModal } from '@/components/BorrowBookModal';
 import { useAuth } from '@/context/AuthContext';
+import { useLocale } from '@/context/LocaleContext';
 
 interface Book {
   id: string;
@@ -34,6 +35,7 @@ interface BooksResponse {
 
 export default function BooksPage() {
   const { dbUser } = useAuth();
+  const { t } = useLocale();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export default function BooksPage() {
       setTotalPages(data.pagination.pages);
       setError(null);
     } catch (err) {
-      setError('Error loading books. Please try again.');
+      setError(t('errorLoadingBooks'));
       console.error('Error fetching books:', err);
     } finally {
       setLoading(false);
@@ -106,7 +108,7 @@ export default function BooksPage() {
     
     // Can't borrow own books
     if (book.family.id === dbUser.family.id) {
-      setError('You cannot borrow books from your own family.');
+      setError(t('ownFamilyBook'));
       return;
     }
     
@@ -127,8 +129,8 @@ export default function BooksPage() {
       
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">📚 Browse Books</h1>
-          <p className="text-gray-600 mb-6">Discover books shared by families in your community</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('booksTitle')}</h1>
+          <p className="text-gray-600 mb-6">{t('booksSubtitle')}</p>
         </div>
         
         {/* Search and Filters */}
@@ -137,7 +139,7 @@ export default function BooksPage() {
             <div className="md:col-span-2">
               <Input
                 type="text"
-                placeholder="Search by title, author, or description..."
+                placeholder={t('searchBooksPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 fullWidth
@@ -151,7 +153,7 @@ export default function BooksPage() {
                   onChange={(e) => setShowAvailableOnly(e.target.checked)}
                   className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <span className="text-gray-700">Available only</span>
+                <span className="text-gray-700">{t('availableOnly')}</span>
               </label>
             </div>
           </div>
@@ -174,18 +176,18 @@ export default function BooksPage() {
         ) : error ? (
           <div className="bg-white p-6 rounded-lg shadow text-center">
             <p className="text-red-600 mb-4">{error}</p>
-            <Button onClick={() => fetchBooks()}>Try Again</Button>
+            <Button onClick={() => fetchBooks()}>{t('tryAgain')}</Button>
           </div>
         ) : books.length === 0 ? (
           <div className="bg-white p-12 rounded-lg shadow text-center">
             <p className="text-gray-500 text-lg mb-4">
               {searchTerm || showAvailableOnly ? 
-                'No books found matching your criteria.' : 
-                'No books available yet.'}
+                t('booksNone') : 
+                t('booksNone')}
             </p>
             {!searchTerm && !showAvailableOnly && (
               <Link href="/dashboard">
-                <Button variant="primary">Add Your First Book</Button>
+                <Button variant="primary">{t('addBook')}</Button>
               </Link>
             )}
           </div>
@@ -213,7 +215,7 @@ export default function BooksPage() {
                           {book.condition}
                         </span>
                       </div>
-                      <p className="text-gray-600 text-sm mb-2">by {book.author}</p>
+                      <p className="text-gray-600 text-sm mb-2">{book.author}</p>
                       {book.description && (
                         <CardDescription className="text-sm text-gray-500 mb-3 line-clamp-2">
                           {book.description}
@@ -235,7 +237,7 @@ export default function BooksPage() {
                       className={!book.isAvailable ? 'opacity-50 cursor-not-allowed' : ''}
                       onClick={() => handleBorrowRequest(book)}
                     >
-                      {book.isAvailable ? 'Request to Borrow' : 'Not Available'}
+                      {book.isAvailable ? t('requestBorrow') : t('notAvailable')}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -251,10 +253,10 @@ export default function BooksPage() {
                   onClick={() => setPage(page - 1)}
                   disabled={page === 1}
                 >
-                  Previous
+                  {t('previous')}
                 </Button>
                 <span className="px-4 py-2 text-sm text-gray-600">
-                  Page {page} of {totalPages}
+                  {page} / {totalPages}
                 </span>
                 <Button
                   variant="secondary"
@@ -262,7 +264,7 @@ export default function BooksPage() {
                   onClick={() => setPage(page + 1)}
                   disabled={page === totalPages}
                 >
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             )}

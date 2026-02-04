@@ -18,6 +18,15 @@ enum BorrowStatus {
   RETURNED
 }
 
+enum AdminAction {
+  PROMOTE_USER
+  DEMOTE_USER
+  DEACTIVATE_USER
+  REACTIVATE_USER
+  DELETE_EMPTY_FAMILY
+  DELETE_BOOK
+}
+
 enum InviteStatus {
   PENDING
   ACCEPTED
@@ -37,9 +46,11 @@ model User {
   name        String
   firebaseUid String   @unique
   role        UserRole @default(MEMBER)
+  isActive    Boolean  @default(true)
   familyId    String
   family      Family   @relation(fields: [familyId], references: [id])
   borrowings  Borrowing[]
+  adminAudits AdminAudit[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -59,6 +70,8 @@ model Family {
   invites   FamilyInvite[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([name])
 }
 
 model Book {
@@ -68,6 +81,7 @@ model Book {
   title       String
   author      String
   isbn        String?
+  language    String?
   description String?
   coverImage  String?
   condition   BookCondition @default(GOOD)
@@ -105,4 +119,19 @@ model FamilyInvite {
 
   @@index([familyId, status])
   @@index([email])
+}
+
+model AdminAudit {
+  id             String      @id @default(cuid())
+  actorUserId    String
+  action         AdminAction
+  targetUserId   String?
+  targetFamilyId String?
+  targetBookId   String?
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+  actorUser      User        @relation(fields: [actorUserId], references: [id])
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
 }
